@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MAL Tools</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px 40px;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+      background: linear-gradient(135deg, #e040fb, #4dd0e1, #ffb74d);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 40px;
+      font-size: 1rem;
+      text-align: center;
+      max-width: 540px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .tool-card {
+      background: #16213e;
+      border-radius: 16px;
+      padding: 28px 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      border: 2px solid transparent;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .tool-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    }
+
+    .tool-card.ptw:hover    { border-color: #e040fb; }
+    .tool-card.ptr:hover    { border-color: #4dd0e1; }
+    .tool-card.ranker:hover { border-color: #ffb74d; }
+
+    .tool-icon {
+      font-size: 2.4rem;
+      margin-bottom: 14px;
+    }
+
+    .tool-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .ptw    .tool-title { color: #e040fb; }
+    .ptr    .tool-title { color: #4dd0e1; }
+    .ranker .tool-title { color: #ffb74d; }
+
+    .tool-desc {
+      color: #aaa;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .tool-cta {
+      margin-top: 16px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #ddd;
+    }
+    .ptw    .tool-cta { color: #e040fb; }
+    .ptr    .tool-cta { color: #4dd0e1; }
+    .ranker .tool-cta { color: #ffb74d; }
+
+    .footer {
+      margin-top: 50px;
+      padding-top: 24px;
+      border-top: 1px solid #263056;
+      width: 100%;
+      max-width: 900px;
+      color: #666;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .status-ok  { background: #1b5e20; color: #c8e6c9; }
+    .status-bad { background: #3e1313; color: #ff8a80; }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    a { color: #4dd0e1; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<h1>🌸 MAL Tools</h1>
+<p class="subtitle">Small toys for your MyAnimeList data — built on a tiny local Python proxy so the browser can talk to MAL without CORS pain.</p>
+
+<div class="grid">
+
+  <a href="/tools/ptw_picker.html" class="tool-card ptw">
+    <div class="tool-icon">🎲</div>
+    <div class="tool-title">PTW Picker</div>
+    <div class="tool-desc">
+      Roulette for your <em>Plan to Watch</em> list. Filter by max episodes, type, or genre, then pick a random anime to actually go watch.
+    </div>
+    <div class="tool-cta">Open →</div>
+  </a>
+
+  <a href="/tools/ptr_picker.html" class="tool-card ptr">
+    <div class="tool-icon">📚</div>
+    <div class="tool-title">PTR Picker</div>
+    <div class="tool-desc">
+      Same idea for manga. Pick from your <em>Plan to Read</em> list filtered by chapters, type, or genre.
+    </div>
+    <div class="tool-cta">Open →</div>
+  </a>
+
+  <a href="/tools/ranker.html" class="tool-card ranker">
+    <div class="tool-icon">🏆</div>
+    <div class="tool-title">Anime Ranker</div>
+    <div class="tool-desc">
+      Swiss-style tournament over your completed anime. Click winners head-to-head, get a top 9 sorted by wins and strength of schedule.
+    </div>
+    <div class="tool-cta">Open →</div>
+  </a>
+
+</div>
+
+<div class="footer">
+  <div>Proxy status: <span id="status" class="status status-bad"><span class="dot"></span>checking…</span></div>
+  <div style="margin-top:14px;">
+    Source: this page is served by <code>mal_proxy.py</code> at <code>localhost:8765</code>.
+  </div>
+</div>
+
+<script>
+  // Quick sanity check that the proxy is up
+  fetch('/health')
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(() => {
+      const el = document.getElementById('status');
+      el.className = 'status status-ok';
+      el.innerHTML = '<span class="dot"></span>connected';
+    })
+    .catch(() => {
+      const el = document.getElementById('status');
+      el.className = 'status status-bad';
+      el.innerHTML = '<span class="dot"></span>not running';
+    });
+</script>
+</body>
+</html>

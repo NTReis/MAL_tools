@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MAL PTR Picker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: #4dd0e1;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+    }
+
+    .card {
+      background: #16213e;
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .field { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      color: #aaa;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #0f3460;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input[type="text"]:focus { border-color: #4dd0e1; }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: #4dd0e1;
+    }
+
+    .slider-val {
+      min-width: 48px;
+      text-align: right;
+      font-size: 0.95rem;
+      color: #4dd0e1;
+      font-weight: bold;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #0f3460;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    select:focus { border-color: #4dd0e1; }
+
+    .multi-select {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 5px 13px;
+      border-radius: 20px;
+      border: 1px solid #444;
+      background: #0f3460;
+      color: #ccc;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .chip.active {
+      background: #4dd0e1;
+      border-color: #4dd0e1;
+      color: #002b30;
+      font-weight: bold;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #4dd0e1, #1976d2);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.5px;
+    }
+
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Result */
+    #result {
+      display: none;
+      margin-top: 28px;
+      background: #16213e;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 560px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #result img {
+      width: 100%;
+      max-height: 480px;
+      object-fit: contain;
+      background: #0d1535;
+      display: block;
+    }
+
+    .result-body { padding: 20px 24px; }
+
+    .result-title {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #4dd0e1;
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+
+    .result-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-purple { background: #4a148c; color: #e1bee7; }
+    .badge-blue   { background: #0d47a1; color: #bbdefb; }
+    .badge-green  { background: #1b5e20; color: #c8e6c9; }
+    .badge-cyan   { background: #006064; color: #b2ebf2; }
+
+    .result-extra {
+      font-size: 0.85rem;
+      color: #aaa;
+      line-height: 1.7;
+    }
+
+    .result-extra span { color: #ccc; }
+
+    .result-link {
+      display: inline-block;
+      margin-top: 14px;
+      color: #4dd0e1;
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .result-link:hover { text-decoration: underline; }
+
+    /* Loading */
+    .spinner {
+      display: none;
+      text-align: center;
+      padding: 14px;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    #error-msg {
+      display: none;
+      background: #3e1313;
+      color: #ff8a80;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-top: 16px;
+      font-size: 0.9rem;
+      max-width: 560px;
+      width: 100%;
+    }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid #263056;
+      margin: 6px 0 20px;
+    }
+
+    .load-btn {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #4dd0e1;
+      background: transparent;
+      color: #4dd0e1;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .load-btn:hover { background: rgba(77,208,225,0.1); }
+    .load-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .filter-note {
+      font-size: 0.78rem;
+      color: #666;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📚 MAL PTR Picker</h1>
+<p class="subtitle">Randomly pick from your Plan to Read list</p>
+
+<div class="card">
+
+  <!-- Username -->
+  <div class="field">
+    <label>MyAnimeList Username <span class="filter-note">(local proxy must be running: <code>python3 mal_proxy.py</code>)</span></label>
+    <input type="text" id="username" placeholder="e.g. Darkestcraft" />
+  </div>
+
+  <button class="load-btn" id="loadBtn" onclick="loadList()">Load My PTR List</button>
+  <div class="spinner" id="loadSpinner">⏳ Fetching your list from MAL…</div>
+
+  <hr class="section-divider" style="margin-top:20px;" />
+
+  <!-- Chapters slider -->
+  <div class="field">
+    <label>Max Chapters <span class="filter-note">(0 = unknown/ongoing)</span></label>
+    <div class="slider-row">
+      <input type="range" id="chSlider" min="0" max="500" value="500" step="1" oninput="updateSlider()" />
+      <div class="slider-val" id="chVal">Any</div>
+    </div>
+  </div>
+
+  <!-- Type filter -->
+  <div class="field">
+    <label>Type</label>
+    <div class="multi-select" id="typeChips"></div>
+  </div>
+
+  <!-- Genre filter -->
+  <div class="field">
+    <label>Genre</label>
+    <select id="genreSelect">
+      <option value="">Any Genre</option>
+    </select>
+  </div>
+
+  <!-- Show score toggle -->
+  <div class="field">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;color:#ccc;letter-spacing:normal;">
+      <input type="checkbox" id="showScoreToggle" />
+      <span>Show MAL score on picked manga</span>
+    </label>
+  </div>
+
+  <!-- Generate button -->
+  <button class="btn" id="genBtn" onclick="generate()" disabled>Pick Random Manga</button>
+
+</div>
+
+<!-- Error -->
+<div id="error-msg"></div>
+
+<!-- Result -->
+<div id="result">
+  <img id="result-img" src="" alt="Manga cover" />
+  <div class="result-body">
+    <div class="result-title" id="result-title"></div>
+    <div class="result-meta" id="result-meta"></div>
+    <div class="result-extra" id="result-extra"></div>
+    <a id="result-link" class="result-link" href="#" target="_blank">View on MyAnimeList →</a>
+  </div>
+</div>
+
+<script>
+  // ─── State ───────────────────────────────────────────────────────────────
+  let allManga = [];       // [{title, type, chapters, volumes, id, genres, image}]
+  let selectedTypes = new Set();
+
+  // Manga type values from MAL
+  const TYPES = ['Manga', 'Light Novel', 'One-shot', 'Doujinshi', 'Manhwa', 'Manhua', 'Novel'];
+
+  const PROXY_URL = 'http://localhost:8765';
+
+  // ─── Init chips ──────────────────────────────────────────────────────────
+  (function initChips() {
+    const container = document.getElementById('typeChips');
+    TYPES.forEach(t => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = t;
+      chip.dataset.value = t;
+      chip.onclick = () => {
+        chip.classList.toggle('active');
+        if (selectedTypes.has(t)) selectedTypes.delete(t);
+        else selectedTypes.add(t);
+      };
+      container.appendChild(chip);
+    });
+  })();
+
+  // ─── Slider ──────────────────────────────────────────────────────────────
+  function updateSlider() {
+    const v = parseInt(document.getElementById('chSlider').value);
+    document.getElementById('chVal').textContent =
+      v >= 500 ? 'Any' : v === 0 ? '0 (unknown)' : v;
+  }
+
+  // ─── Load PTR list ───────────────────────────────────────────────────────
+  async function loadList() {
+    const username = document.getElementById('username').value.trim();
+    if (!username) { showError('Enter a username first.'); return; }
+
+    clearError();
+    document.getElementById('loadBtn').disabled = true;
+    document.getElementById('loadSpinner').style.display = 'block';
+    document.getElementById('result').style.display = 'none';
+    allManga = [];
+
+    try {
+      const url = `${PROXY_URL}/ptr/${encodeURIComponent(username)}`;
+      let res;
+      try {
+        res = await fetch(url);
+      } catch (_) {
+        throw new Error('Cannot reach proxy. Run: python3 mal_proxy.py');
+      }
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Proxy error ${res.status}.`);
+
+      allManga = (json.manga || []).map(m => ({
+        title:    m.title,
+        type:     m.type,
+        chapters: m.chapters,
+        volumes:  m.volumes,
+        id:       m.id,
+        image:    m.image || '',
+        genres:   m.genres || [],
+      }));
+
+      if (allManga.length === 0) throw new Error('PTR list is empty or private.');
+
+      populateTypeChips();
+      populateGenreDropdown();
+
+      document.getElementById('genBtn').disabled = false;
+      document.getElementById('loadBtn').textContent = `✓ Loaded ${allManga.length} PTR manga`;
+
+    } catch (e) {
+      showError(e.message);
+      document.getElementById('loadBtn').disabled = false;
+      document.getElementById('loadBtn').textContent = 'Load My PTR List';
+    } finally {
+      document.getElementById('loadSpinner').style.display = 'none';
+    }
+  }
+
+  function populateTypeChips() {
+    const present = new Set(allManga.map(m => m.type));
+    document.querySelectorAll('#typeChips .chip').forEach(chip => {
+      chip.style.display = present.has(chip.dataset.value) ? '' : 'none';
+    });
+  }
+
+  function populateGenreDropdown() {
+    const sel = document.getElementById('genreSelect');
+    sel.innerHTML = '<option value="">Any Genre</option>';
+    const map = new Map();
+    for (const m of allManga) {
+      for (const g of m.genres) {
+        if (g.id != null && g.name) map.set(String(g.id), g.name);
+      }
+    }
+    [...map.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .forEach(([id, name]) => {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = name;
+        sel.appendChild(opt);
+      });
+
+    if (map.size === 0) sel.parentElement.style.display = 'none';
+  }
+
+  // ─── Generate ─────────────────────────────────────────────────────────────
+  function generate() {
+    clearError();
+    if (allManga.length === 0) { showError('Load your list first.'); return; }
+
+    const maxCh    = parseInt(document.getElementById('chSlider').value);
+    const genreId  = document.getElementById('genreSelect').value;
+    const useMaxCh = maxCh < 500;
+
+    let pool = allManga.filter(m => {
+      if (selectedTypes.size > 0 && !selectedTypes.has(m.type))      return false;
+      if (useMaxCh && m.chapters > maxCh && m.chapters !== 0)        return false;
+      if (genreId && !m.genres.some(g => String(g.id) === genreId))  return false;
+      return true;
+    });
+
+    if (pool.length === 0) {
+      showError('No manga match your filters. Try relaxing them.');
+      return;
+    }
+
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    showResult(pick);
+  }
+
+  // ─── Show result ─────────────────────────────────────────────────────────
+  async function showResult(m) {
+    document.getElementById('result-img').src = m.image || '';
+    document.getElementById('result-img').style.display = m.image ? 'block' : 'none';
+    document.getElementById('result-title').textContent = m.title;
+
+    const meta = document.getElementById('result-meta');
+    meta.innerHTML = '';
+
+    const chLabel = m.chapters === 0 ? '? ch' : `${m.chapters} ch${m.chapters !== 1 ? '' : ''}`;
+    addBadge(meta, chLabel,  'badge-blue');
+    if (m.volumes > 0) addBadge(meta, `${m.volumes} vol${m.volumes !== 1 ? 's' : ''}`, 'badge-cyan');
+    addBadge(meta, m.type,   'badge-purple');
+
+    const extra = document.getElementById('result-extra');
+    extra.innerHTML = '<div style="color:#888;">Loading details…</div>';
+
+    const link = document.getElementById('result-link');
+    link.href = `https://myanimelist.net/manga/${m.id}/`;
+
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Enrich via /manga/<id>
+    try {
+      const res  = await fetch(`${PROXY_URL}/manga/${m.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Enrich failed');
+
+      const showScore = document.getElementById('showScoreToggle').checked;
+      if (showScore && data.score) addBadge(meta, `★ ${data.score}`, 'badge-green');
+
+      const authors        = (data.authors || []).map(a => a.name).join(', ') || '—';
+      const serializations = (data.serializations || []).map(s => s.name).join(', ');
+      const genres         = (data.genres  || []).map(g => g.name).join(', ')  || '—';
+      const themes         = (data.themes  || []).map(t => t.name).join(', ');
+      const published      = data.published ? `<div><span>Published:</span> ${escapeHtml(data.published)}</div>` : '';
+      const status         = data.status    ? `<div><span>Status:</span> ${escapeHtml(data.status)}</div>` : '';
+      const synopsis = data.synopsis
+        ? `<div style="margin-top:10px;"><span>Synopsis:</span> ${escapeHtml(data.synopsis).slice(0, 400)}${data.synopsis.length > 400 ? '…' : ''}</div>`
+        : '';
+
+      extra.innerHTML = `
+        ${published}
+        ${status}
+        <div><span>Author(s):</span> ${authors}</div>
+        ${serializations ? `<div><span>Serialization:</span> ${serializations}</div>` : ''}
+        <div><span>Genres:</span> ${genres}</div>
+        ${themes ? `<div><span>Themes:</span> ${themes}</div>` : ''}
+        ${synopsis}
+      `;
+
+      if (data.image) {
+        document.getElementById('result-img').src = data.image;
+        document.getElementById('result-img').style.display = 'block';
+      }
+    } catch (e) {
+      extra.innerHTML = `<div style="color:#888;">Details unavailable (${escapeHtml(e.message)})</div>`;
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function addBadge(container, text, cls) {
+    const b = document.createElement('span');
+    b.className = `badge ${cls}`;
+    b.textContent = text;
+    container.appendChild(b);
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = '⚠️ ' + msg;
+    el.style.display = 'block';
+  }
+
+  function clearError() {
+    document.getElementById('error-msg').style.display = 'none';
+  }
+</script>
+</body>
+</html>
