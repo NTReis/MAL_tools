@@ -8,11 +8,16 @@ Run:
     python3 mal_proxy.py
 
 Endpoints:
-    GET /ptw/<username>        - Plan to Watch (anime)
-    GET /ptr/<username>        - Plan to Read (manga)
-    GET /completed/<username>  - Completed anime (with user score)
-    GET /anime/<id>            - Anime details (Jikan v4 enrichment)
-    GET /manga/<id>            - Manga details (Jikan v4 enrichment)
+    GET /ptw/<username>          - Plan to Watch (anime)
+    GET /ptr/<username>          - Plan to Read (manga)
+    GET /completed/<username>    - Completed anime (with user score)
+    GET /anime/<id>              - Anime details (Jikan v4 enrichment)
+    GET /manga/<id>              - Manga details (Jikan v4 enrichment)
+    GET /profile/<username>      - Jikan profile + statistics block
+    GET /enriched/<username>     - Full completed anime list, each entry
+                                   enriched with studios/genres (cached on disk)
+    GET /enriched-manga/<user>   - Full completed manga list, each entry
+                                   enriched with authors/serializations (cached)
 """
 
 import json
@@ -186,6 +191,150 @@ def _clean_image(path: str) -> str:
     return re.sub(r"/r/\d+x\d+/", "/", path)
 
 
+# ─── Jikan rate limiter ────────────────────────────────────────────────────
+# Jikan allows ~3 requests per second. We serialize the gate across threads
+# so concurrent enrichment requests from the dashboard don't burst Jikan.
+_JIKAN_LOCK    = threading.Lock()
+_JIKAN_LAST    = [0.0]   # mutable container so we can update under lock
+_JIKAN_GAP_SEC = 0.34    # ~3 req/s
+
+
+def _jikan_throttle():
+    with _JIKAN_LOCK:
+        now  = time.monotonic()
+        wait = _JIKAN_GAP_SEC - (now - _JIKAN_LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        _JIKAN_LAST[0] = time.monotonic()
+
+
+# ─── Disk cache for Jikan details ──────────────────────────────────────────
+# Cuts repeat enrichment from "60s for 150 anime" to instant.
+CACHE_DIR = os.path.join(os.path.expanduser("~"), ".mal_tools_cache")
+
+
+def _cache_path(kind: str, item_id: int) -> str:
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    return os.path.join(CACHE_DIR, f"{kind}_{item_id}.json")
+
+
+def _cache_get(kind: str, item_id: int):
+    path = _cache_path(kind, item_id)
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _cache_put(kind: str, item_id: int, data: dict):
+    try:
+        with open(_cache_path(kind, item_id), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except OSError:
+        pass  # cache is best-effort
+
+
+def fetch_anime_cached(anime_id: int):
+    """Anime details with disk cache. Throttles to Jikan's ~3 req/s globally."""
+    if anime_id is None:
+        return None
+    hit = _cache_get("anime", anime_id)
+    if hit is not None:
+        return hit
+    _jikan_throttle()
+    try:
+        details = fetch_anime_details(anime_id)
+        _cache_put("anime", anime_id, details)
+        return details
+    except Exception:
+        return None
+
+
+def fetch_manga_cached(manga_id: int):
+    if manga_id is None:
+        return None
+    hit = _cache_get("manga", manga_id)
+    if hit is not None:
+        return hit
+    _jikan_throttle()
+    try:
+        details = fetch_manga_details(manga_id)
+        _cache_put("manga", manga_id, details)
+        return details
+    except Exception:
+        return None
+
+
+# ─── User profile / statistics ─────────────────────────────────────────────
+def fetch_profile(username: str):
+    """Jikan v4 /users/{username}/full — has statistics block."""
+    url = f"https://api.jikan.moe/v4/users/{urllib.parse.quote(username)}/full"
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8")).get("data") or {}
+
+    stats = data.get("statistics", {}) or {}
+    return {
+        "username":   data.get("username"),
+        "url":        data.get("url"),
+        "joined":     data.get("joined"),
+        "image":      (data.get("images", {}).get("jpg", {}) or {}).get("image_url"),
+        "anime":      stats.get("anime", {}),
+        "manga":      stats.get("manga", {}),
+    }
+
+
+# ─── Enriched lists (with cached Jikan details merged in) ──────────────────
+def fetch_enriched_anime(username: str):
+    """Completed anime list, each entry enriched via Jikan (studios)."""
+    base = fetch_completed(username)
+    out = []
+    for a in base:
+        details = fetch_anime_cached(a["id"])
+        out.append({
+            **a,
+            "studios": (details or {}).get("studios", []),
+            "themes":  (details or {}).get("themes", []),
+            # Override genres with Jikan's canonical list if available
+            "genres":  (details or {}).get("genres", a.get("genres", [])),
+        })
+    return out
+
+
+def fetch_completed_manga(username: str):
+    """Completed manga list (status=2 on /mangalist/load.json)."""
+    items = _fetch_mal_list("mangalist", username, 2)
+    return [{
+        "title":    it.get("manga_title", "Unknown"),
+        "type":     it.get("manga_media_type_string", "Unknown"),
+        "chapters": it.get("manga_num_chapters", 0) or 0,
+        "volumes":  it.get("manga_num_volumes",  0) or 0,
+        "id":       it.get("manga_id"),
+        "image":    _clean_image(it.get("manga_image_path", "")),
+        "genres":   _extract_genres(it),
+        "score":    it.get("score", 0) or 0,
+    } for it in items]
+
+
+def fetch_enriched_manga(username: str):
+    """Completed manga list, enriched via Jikan (authors, serializations)."""
+    base = fetch_completed_manga(username)
+    out = []
+    for m in base:
+        details = fetch_manga_cached(m["id"])
+        out.append({
+            **m,
+            "authors":        (details or {}).get("authors", []),
+            "serializations": (details or {}).get("serializations", []),
+            "themes":         (details or {}).get("themes", []),
+            "genres":         (details or {}).get("genres", m.get("genres", [])),
+        })
+    return out
+
+
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -207,7 +356,10 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     # API routes that should NOT fall through to static file serving
-    API_ROUTES = {"health", "ptw", "ptr", "completed", "anime", "manga"}
+    API_ROUTES = {
+        "health", "ptw", "ptr", "completed", "anime", "manga",
+        "profile", "enriched", "enriched-manga",
+    }
 
     def do_GET(self):
         # Strip query string for routing
@@ -221,9 +373,11 @@ class Handler(BaseHTTPRequestHandler):
 
         # User list endpoints — same shape, different fetcher
         list_handlers = {
-            "ptw":       ("anime", fetch_ptw),
-            "ptr":       ("manga", fetch_ptr),
-            "completed": ("anime", fetch_completed),
+            "ptw":             ("anime", fetch_ptw),
+            "ptr":             ("manga", fetch_ptr),
+            "completed":       ("anime", fetch_completed),
+            "enriched":        ("anime", fetch_enriched_anime),
+            "enriched-manga":  ("manga", fetch_enriched_manga),
         }
         if route in list_handlers and arg:
             payload_key, fetcher = list_handlers[route]
@@ -241,15 +395,29 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json(500, {"error": str(e)})
 
-        # Detail endpoints — anime/manga by id via Jikan
+        # Detail endpoints — anime/manga by id via Jikan (cached on disk)
         detail_handlers = {
-            "anime": fetch_anime_details,
-            "manga": fetch_manga_details,
+            "anime": fetch_anime_cached,
+            "manga": fetch_manga_cached,
         }
         if route in detail_handlers and arg and arg.isdigit():
             try:
-                return self._json(200, detail_handlers[route](int(arg)))
+                payload = detail_handlers[route](int(arg))
+                if payload is None:
+                    return self._json(502, {"error": "Failed to fetch from Jikan."})
+                return self._json(200, payload)
             except urllib.error.HTTPError as e:
+                return self._json(e.code, {"error": f"Jikan returned HTTP {e.code}."})
+            except Exception as e:
+                return self._json(500, {"error": str(e)})
+
+        # Profile / stats — returns Jikan's statistics block
+        if route == "profile" and arg:
+            try:
+                return self._json(200, fetch_profile(arg))
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    return self._json(404, {"error": f'User "{arg}" not found on MAL.'})
                 return self._json(e.code, {"error": f"Jikan returned HTTP {e.code}."})
             except Exception as e:
                 return self._json(500, {"error": str(e)})
@@ -306,11 +474,14 @@ def main():
     print("─" * 50)
     print(f"  Open the hub in your browser: {url}")
     print(f"  API:")
-    print(f"    /ptw/<user>        Plan to Watch")
-    print(f"    /ptr/<user>        Plan to Read")
-    print(f"    /completed/<user>  Completed (with your score)")
-    print(f"    /anime/<id>        Anime details (Jikan)")
-    print(f"    /manga/<id>        Manga details (Jikan)")
+    print(f"    /ptw/<user>            Plan to Watch")
+    print(f"    /ptr/<user>            Plan to Read")
+    print(f"    /completed/<user>      Completed anime (with score)")
+    print(f"    /profile/<user>        Profile + stats (Jikan)")
+    print(f"    /enriched/<user>       Completed anime, enriched (cached)")
+    print(f"    /enriched-manga/<user> Completed manga, enriched (cached)")
+    print(f"    /anime/<id>            Anime details (Jikan)")
+    print(f"    /manga/<id>            Manga details (Jikan)")
     print()
     print("  Ctrl-C to stop.")
     print()

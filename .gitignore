@@ -21,3 +21,7 @@ Thumbs.db
 # Local logs / scratch
 *.log
 scratch/
+
+# MAL Tools cache (lives in ~/.mal_tools_cache by default,
+# but ignore in case someone moves it into the repo)
+.mal_tools_cache/

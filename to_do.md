@@ -62,9 +62,27 @@ Rank your completed anime via head-to-head comparisons.
 
 ---
 
+### Stats Dashboard
+- [x] Proxy: `GET /profile/<user>` — Jikan `/users/{user}/full`, returns clean `{anime, manga}` statistics blocks
+- [x] Proxy: disk cache for `/anime/<id>` and `/manga/<id>` (`~/.mal_tools_cache/<kind>_<id>.json`) so repeat loads are instant
+- [x] Proxy: global Jikan rate-limiter (single ~3 req/s gate shared across threads, prevents bursts when frontend parallelizes)
+- [x] Proxy: `GET /enriched-manga/<user>` — completed manga with authors/serializations enriched + cached server-side
+- [x] `tools/dashboard.html`
+  - [x] Anime / Manga toggle
+  - [x] Overview tiles: mean score, days, episodes/chapters/volumes, total entries (rewatched/reread tiles dropped per user feedback)
+  - [x] **Status breakdown donut chart** with color-coded slices + legend (% + count)
+  - [x] Top 5 most-watched / highest-rated genres (avg score requires ≥3 scored entries)
+  - [x] Top 5 studios (anime) / authors + serializations (manga)
+  - [x] **Stats and genre lists render immediately**, studio/author lists fill in progressively in background (3 parallel workers, re-renders every 5% of progress)
+  - [x] Hub card added (`📊 Stats Dashboard`)
+
+---
+
 ## Ideas / nice-to-haves (later)
 - [ ] Currently Watching / Currently Reading helper (next-episode reminders?)
-- [ ] Stats dashboard (genre breakdown, score distribution, hours watched)
-- [ ] Caching layer in proxy so repeated loads of same user are instant
+- [ ] Score distribution chart on dashboard
+- [ ] Year-by-year activity heatmap
+- [ ] Username carryover across tools (deferred — user opted out for now)
 - [ ] Dark/light theme toggle
 - [ ] Export ranker results as image
+- [ ] Cache TTL / invalidation UI ("clear cache" button)

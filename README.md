@@ -64,7 +64,8 @@ mal-tools/
 ├── tools/
 │   ├── ptw_picker.html
 │   ├── ptr_picker.html
-│   └── ranker.html
+│   ├── ranker.html
+│   └── dashboard.html
 ├── legacy/
 │   └── MAL_PTW_Gen.ipynb   # Original Jupyter prototype (kept for reference)
 ├── run.sh / run.bat        # One-command launchers
@@ -89,6 +90,17 @@ Roulette for anime you've added to *Plan to Watch* but never get around to.
 
 Same idea for manga. Filter by max chapters, type (Manga / Light Novel / Manhwa / Manhua / ...), or genre. Enriched result shows authors, serialization, status.
 
+### 📊 Stats Dashboard — `/tools/dashboard.html`
+
+Profile-wide stats plus breakdowns from your completed list.
+
+- Toggle between **Anime** and **Manga** mode.
+- Overview: mean score, days watched/read, episodes/chapters/volumes, total entries, rewatched/reread.
+- Status pills: watching / completed / on-hold / dropped / plan-to-watch / total.
+- Top 5 most-watched and highest-rated **genres** (avg-score lists require ≥3 scored entries to avoid noise).
+- Top 5 most-watched and highest-rated **studios** (anime) or **authors** (manga), plus most common serializations.
+- First load enriches each entry via Jikan and is therefore slow (~30–90s for ~150 anime). Results are cached on disk so the next visit is instant.
+
 ### 🏆 Anime Ranker — `/tools/ranker.html`
 
 Swiss-style tournament over your completed anime.
@@ -106,16 +118,21 @@ State is saved to `localStorage` after every click, so closing the tab and comin
 
 You generally don't need to call these by hand — the HTML tools do it — but they're useful for poking around or building your own thing.
 
-| Method | Path                    | What it does                                                                  |
-|--------|-------------------------|-------------------------------------------------------------------------------|
-| GET    | `/health`               | `{"ok": true}` if the server is up.                                           |
-| GET    | `/ptw/<username>`       | Plan to Watch list. Returns `{username, count, anime: [...]}`.                |
-| GET    | `/ptr/<username>`       | Plan to Read list. Returns `{username, count, manga: [...]}`.                 |
-| GET    | `/completed/<username>` | Completed anime including the user's score per entry.                         |
-| GET    | `/anime/<id>`           | Single-anime details via Jikan v4 (studios, synopsis, themes, ...).           |
-| GET    | `/manga/<id>`           | Single-manga details via Jikan v4 (authors, serializations, ...).             |
+| Method | Path                          | What it does                                                                  |
+|--------|-------------------------------|-------------------------------------------------------------------------------|
+| GET    | `/health`                     | `{"ok": true}` if the server is up.                                           |
+| GET    | `/ptw/<username>`             | Plan to Watch list. Returns `{username, count, anime: [...]}`.                |
+| GET    | `/ptr/<username>`             | Plan to Read list. Returns `{username, count, manga: [...]}`.                 |
+| GET    | `/completed/<username>`       | Completed anime including the user's score per entry.                         |
+| GET    | `/profile/<username>`         | Jikan profile + statistics blocks for both anime and manga.                   |
+| GET    | `/enriched/<username>`        | Completed anime, each entry enriched with studios/themes via Jikan + cached.  |
+| GET    | `/enriched-manga/<username>`  | Completed manga, each entry enriched with authors/serializations + cached.    |
+| GET    | `/anime/<id>`                 | Single-anime details via Jikan v4 (studios, synopsis, themes, ...).           |
+| GET    | `/manga/<id>`                 | Single-manga details via Jikan v4 (authors, serializations, ...).             |
 
 The list endpoints page through MAL's `load.json` 300 entries at a time and stitch the results together.
+
+Single-item details (`/anime/<id>`, `/manga/<id>`) are cached on disk under `~/.mal_tools_cache/`. First lookup is slow, subsequent lookups are instant. Delete that folder to bust the cache.
 
 ---
 

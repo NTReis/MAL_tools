@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MAL Stats Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #121212;
+      color: #eee;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 6px;
+      color: #82b1ff;
+      letter-spacing: 1px;
+    }
+    .subtitle {
+      color: #aaa;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .card {
+      background: #16213e;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 960px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      margin-bottom: 20px;
+    }
+
+    /* ─── Setup row ───────────────────────────── */
+    .setup-row {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+      flex-wrap: wrap;
+    }
+    .setup-row input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #0f3460;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+    }
+    .setup-row input[type="text"]:focus { border-color: #82b1ff; }
+
+    .toggle {
+      display: inline-flex;
+      background: #0f3460;
+      border-radius: 8px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .toggle button {
+      background: transparent;
+      border: none;
+      color: #aaa;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: bold;
+      transition: all 0.15s;
+    }
+    .toggle button.active {
+      background: #82b1ff;
+      color: #0a1929;
+    }
+
+    .btn {
+      padding: 12px 22px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, #82b1ff, #1976d2);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ─── Stats grid ───────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-box {
+      background: #0f3460;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .stat-label {
+      color: #aaa;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      color: #fff;
+      font-size: 1.6rem;
+      font-weight: bold;
+    }
+    .stat-value.accent { color: #82b1ff; }
+
+    /* ─── Status breakdown ─────────────────────── */
+    .status-row {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+    .status-pill {
+      background: #0f3460;
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+    .status-pill .lbl { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+    .status-pill .val { font-size: 1.3rem; font-weight: bold; color: #fff; margin-top: 4px; }
+    .pill-watching   { border-left: 3px solid #4caf50; }
+    .pill-completed  { border-left: 3px solid #82b1ff; }
+    .pill-onhold     { border-left: 3px solid #ffb74d; }
+    .pill-dropped    { border-left: 3px solid #e57373; }
+    .pill-ptw        { border-left: 3px solid #ce93d8; }
+    .pill-total      { border-left: 3px solid #4dd0e1; }
+
+    /* ─── Donut chart ──────────────────────────── */
+    .donut-wrap {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) 1fr;
+      gap: 24px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    @media (max-width: 600px) {
+      .donut-wrap { grid-template-columns: 1fr; }
+    }
+    .donut-svg-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    .donut-center {
+      position: absolute;
+      text-align: center;
+      pointer-events: none;
+    }
+    .donut-center .num {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #fff;
+    }
+    .donut-center .lbl {
+      font-size: 0.75rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+    .donut-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .donut-legend .leg {
+      display: grid;
+      grid-template-columns: 14px 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.9rem;
+      padding: 4px 0;
+    }
+    .donut-legend .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+    .donut-legend .leg-name { color: #ddd; }
+    .donut-legend .leg-pct  { color: #888; font-size: 0.8rem; }
+    .donut-legend .leg-num  { color: #fff; font-weight: bold; }
+
+    .donut-slice {
+      transition: opacity 0.15s;
+      cursor: default;
+    }
+    .donut-slice:hover { opacity: 0.75; }
+
+    @media (max-width: 600px) {
+      .status-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ─── Top lists ────────────────────────────── */
+    .toplists {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+    .toplist {
+      background: #0f3460;
+      border-radius: 12px;
+      padding: 18px;
+    }
+    .toplist h3 {
+      font-size: 0.95rem;
+      color: #82b1ff;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .toplist .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #1a2c5e;
+      font-size: 0.92rem;
+    }
+    .toplist .row:last-child { border-bottom: none; }
+    .toplist .name { color: #ddd; }
+    .toplist .num  { color: #82b1ff; font-weight: bold; }
+
+    .section-title {
+      color: #aaa;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 18px 0 12px;
+      padding-left: 4px;
+    }
+
+    /* ─── Loading ──────────────────────────────── */
+    .progress-wrap {
+      margin-top: 16px;
+      display: none;
+    }
+    .progress-wrap.visible { display: block; }
+    .progress-text {
+      font-size: 0.9rem;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #0f3460;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #82b1ff, #1976d2);
+      transition: width 0.2s ease;
+      width: 0%;
+    }
+
+    #error-msg {
+      display: none;
+      background: #3e1313;
+      color: #ff8a80;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-top: 16px;
+      font-size: 0.9rem;
+      max-width: 960px;
+      width: 100%;
+    }
+
+    .filter-note {
+      font-size: 0.78rem;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    code {
+      background: #0f3460;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+
+    .empty-state {
+      color: #888;
+      font-style: italic;
+      text-align: center;
+      padding: 40px 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📊 MAL Stats Dashboard</h1>
+<p class="subtitle">Profile-wide stats plus genre / studio / author breakdowns from your completed list.</p>
+
+<!-- Setup -->
+<div class="card">
+  <div class="setup-row">
+    <input type="text" id="username" placeholder="MyAnimeList username" />
+    <div class="toggle">
+      <button id="modeAnime" class="active" onclick="setMode('anime')">Anime</button>
+      <button id="modeManga" onclick="setMode('manga')">Manga</button>
+    </div>
+    <button class="btn" id="loadBtn" onclick="loadDashboard()">Load Stats</button>
+  </div>
+  <div class="filter-note" style="margin-top:8px;">
+    Stats appear instantly. Studio (anime) and author (manga) lists fill in over a few seconds — they need to be enriched from Jikan on first load, but we cache to disk so subsequent loads are near-instant.
+  </div>
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-text" id="progressText">Loading…</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+</div>
+
+<div id="error-msg"></div>
+
+<!-- Stats output -->
+<div id="statsContainer" style="width:100%;max-width:960px;display:none;">
+
+  <div class="card">
+    <div class="section-title">Overview</div>
+    <div class="stat-grid" id="overviewGrid"></div>
+
+    <div class="section-title">Status Breakdown</div>
+    <div class="donut-wrap">
+      <div class="donut-svg-wrap" id="donutWrap"></div>
+      <div class="donut-legend" id="donutLegend"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title" id="topSectionTitle">From your completed list</div>
+    <div class="toplists" id="topLists"></div>
+  </div>
+
+</div>
+
+<script>
+  // ──────────────────────────────────────────────
+  // State
+  // ──────────────────────────────────────────────
+  let mode = 'anime'; // 'anime' or 'manga'
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('modeAnime').classList.toggle('active', m === 'anime');
+    document.getElementById('modeManga').classList.toggle('active', m === 'manga');
+  }
+
+  // ──────────────────────────────────────────────
+  // Load
+  // ──────────────────────────────────────────────
+  async function loadDashboard() {
+    const username = document.getElementById('username').value.trim();
+    if (!username) { showError('Enter a username first.'); return; }
+
+    clearError();
+    document.getElementById('loadBtn').disabled = true;
+    document.getElementById('statsContainer').style.display = 'none';
+
+    try {
+      // 1) Profile (instant) + raw completed list (instant, has genres baked in)
+      setProgress('Fetching profile + list…', 5);
+
+      const [profile, listJson] = await Promise.all([
+        fetchJson(`/profile/${encodeURIComponent(username)}`),
+        fetchJson(mode === 'anime'
+          ? `/completed/${encodeURIComponent(username)}`
+          : `/ptr/${encodeURIComponent(username)}`),  // placeholder, see below
+      ]);
+
+      // For manga we still need authors. We'll do that progressively too.
+      let entries = mode === 'anime' ? (listJson.anime || []) : null;
+
+      if (mode === 'manga') {
+        // We need /completed manga not PTR — fetch it from the dedicated endpoint
+        // (the proxy doesn't currently expose raw "completed manga" without enrichment,
+        // so we use /enriched-manga which is also disk-cached on the backend)
+        setProgress('Fetching completed manga…', 15);
+        const mlist = await fetchJson(`/enriched-manga/${encodeURIComponent(username)}`);
+        entries = mlist.manga || [];
+      }
+
+      // 2) Render the cheap stuff IMMEDIATELY:
+      //    - Profile-derived overview + status donut
+      //    - Genre top-lists (genres are already in /completed payload)
+      //    - Placeholders for studio/author lists
+      renderDashboard(profile, entries, /* enriched= */ mode === 'manga');
+      document.getElementById('statsContainer').style.display = '';
+
+      // 3) For anime: enrich studios in parallel in the background, re-rendering
+      //    the studio top-lists as data fills in.
+      if (mode === 'anime' && entries.length > 0) {
+        const total = entries.length;
+        let done = 0;
+        // Re-render every N items so UI stays responsive but doesn't thrash
+        const RENDER_EVERY = Math.max(1, Math.floor(total / 20));
+
+        await runPool(entries, 3, async (a) => {
+          try {
+            const det = await fetchJson(`/anime/${a.id}`);
+            a.studios = det.studios || [];
+            a.themes  = det.themes  || [];
+            // Prefer Jikan's canonical genres if returned
+            if (det.genres && det.genres.length) a.genres = det.genres;
+          } catch (_) { /* skip */ }
+          done += 1;
+          const pct = 5 + (done / total) * 90;
+          setProgress(`Loading studios… ${done}/${total}`, pct);
+          if (done % RENDER_EVERY === 0 || done === total) {
+            renderTopLists(entries);
+          }
+        });
+
+        // Final pass to make sure last items rendered
+        renderTopLists(entries);
+      }
+
+      setProgress('', 100);
+      hideProgress();
+
+    } catch (e) {
+      showError(e.message);
+      hideProgress();
+    } finally {
+      document.getElementById('loadBtn').disabled = false;
+    }
+  }
+
+  async function fetchJson(path) {
+    let res;
+    try {
+      res = await fetch(path);
+    } catch (_) {
+      throw new Error('Cannot reach proxy. Run: python3 mal_proxy.py');
+    }
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || `Proxy error ${res.status}.`);
+    return json;
+  }
+
+  /**
+   * Run an async worker over `items` with at most `concurrency` calls in
+   * flight. Resolves after every item is processed. Errors in the worker
+   * are swallowed by the caller already, so we don't surface them here.
+   */
+  async function runPool(items, concurrency, worker) {
+    let cursor = 0;
+    const next = async () => {
+      while (cursor < items.length) {
+        const i = cursor++;
+        await worker(items[i], i);
+      }
+    };
+    const workers = Array.from({ length: Math.min(concurrency, items.length) }, next);
+    await Promise.all(workers);
+  }
+
+  // ──────────────────────────────────────────────
+  // Render
+  // ──────────────────────────────────────────────
+  function renderDashboard(profile, entries, enriched) {
+    const stats = mode === 'anime' ? (profile.anime || {}) : (profile.manga || {});
+    renderOverview(stats);
+    renderStatusBreakdown(stats);
+    renderTopLists(entries);
+    document.getElementById('topSectionTitle').textContent =
+      mode === 'anime'
+        ? `From your ${entries.length} completed anime`
+        : `From your ${entries.length} completed manga`;
+  }
+
+  function renderOverview(stats) {
+    const grid = document.getElementById('overviewGrid');
+    if (mode === 'anime') {
+      grid.innerHTML = `
+        ${statBox('Mean Score', (stats.mean_score || 0).toFixed(2), true)}
+        ${statBox('Days Watched', (stats.days_watched || 0).toFixed(1))}
+        ${statBox('Episodes', (stats.episodes_watched || 0).toLocaleString())}
+        ${statBox('Total Entries', (stats.total_entries || 0).toLocaleString())}
+      `;
+    } else {
+      grid.innerHTML = `
+        ${statBox('Mean Score', (stats.mean_score || 0).toFixed(2), true)}
+        ${statBox('Days Read', (stats.days_read || 0).toFixed(1))}
+        ${statBox('Chapters', (stats.chapters_read || 0).toLocaleString())}
+        ${statBox('Volumes', (stats.volumes_read || 0).toLocaleString())}
+        ${statBox('Total Entries', (stats.total_entries || 0).toLocaleString())}
+      `;
+    }
+  }
+
+  function statBox(label, value, accent) {
+    return `
+      <div class="stat-box">
+        <div class="stat-label">${escapeHtml(label)}</div>
+        <div class="stat-value ${accent ? 'accent' : ''}">${escapeHtml(String(value))}</div>
+      </div>
+    `;
+  }
+
+  // Status colors aligned with pill border colors
+  const STATUS_COLORS = {
+    'Watching':  '#4caf50',
+    'Reading':   '#4caf50',
+    'Completed': '#82b1ff',
+    'On Hold':   '#ffb74d',
+    'Dropped':   '#e57373',
+    'PTW':       '#ce93d8',
+    'PTR':       '#ce93d8',
+  };
+
+  function renderStatusBreakdown(stats) {
+    const slices = mode === 'anime' ? [
+      { label: 'Watching',  value: stats.watching       || 0 },
+      { label: 'Completed', value: stats.completed      || 0 },
+      { label: 'On Hold',   value: stats.on_hold        || 0 },
+      { label: 'Dropped',   value: stats.dropped        || 0 },
+      { label: 'PTW',       value: stats.plan_to_watch  || 0 },
+    ] : [
+      { label: 'Reading',   value: stats.reading        || 0 },
+      { label: 'Completed', value: stats.completed      || 0 },
+      { label: 'On Hold',   value: stats.on_hold        || 0 },
+      { label: 'Dropped',   value: stats.dropped        || 0 },
+      { label: 'PTR',       value: stats.plan_to_read   || 0 },
+    ];
+
+    const total = slices.reduce((s, x) => s + x.value, 0);
+    renderDonut(slices, total);
+    renderDonutLegend(slices, total);
+  }
+
+  function renderDonut(slices, total) {
+    const wrap = document.getElementById('donutWrap');
+    if (total === 0) {
+      wrap.innerHTML = '<div class="empty-state">No entries.</div>';
+      return;
+    }
+
+    const size   = 220;
+    const stroke = 38;
+    const cx     = size / 2;
+    const cy     = size / 2;
+    const r      = (size - stroke) / 2;
+    const C      = 2 * Math.PI * r;
+
+    let acc = 0;
+    const ringSegments = slices
+      .filter(s => s.value > 0)
+      .map(s => {
+        const frac = s.value / total;
+        // strokeDasharray expresses (filled, gap)
+        // Rotate by -90deg + accumulated offset so segments chain
+        const dash      = `${C * frac} ${C}`;
+        const offset    = -acc * C;
+        const color     = STATUS_COLORS[s.label] || '#aaa';
+        acc += frac;
+        return `
+          <circle class="donut-slice"
+                  cx="${cx}" cy="${cy}" r="${r}"
+                  fill="none"
+                  stroke="${color}"
+                  stroke-width="${stroke}"
+                  stroke-dasharray="${dash}"
+                  stroke-dashoffset="${offset}"
+                  transform="rotate(-90 ${cx} ${cy})">
+            <title>${escapeHtml(s.label)}: ${s.value.toLocaleString()} (${(frac*100).toFixed(1)}%)</title>
+          </circle>
+        `;
+      })
+      .join('');
+
+    wrap.innerHTML = `
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="display:block;">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#0f3460" stroke-width="${stroke}"/>
+        ${ringSegments}
+      </svg>
+      <div class="donut-center">
+        <div class="num">${total.toLocaleString()}</div>
+        <div class="lbl">Total</div>
+      </div>
+    `;
+  }
+
+  function renderDonutLegend(slices, total) {
+    const el = document.getElementById('donutLegend');
+    el.innerHTML = slices
+      .map(s => {
+        const pct = total > 0 ? ((s.value / total) * 100).toFixed(1) : '0.0';
+        const color = STATUS_COLORS[s.label] || '#aaa';
+        return `
+          <div class="leg">
+            <span class="swatch" style="background:${color};"></span>
+            <span class="leg-name">${escapeHtml(s.label)}</span>
+            <span class="leg-num">${s.value.toLocaleString()}</span>
+            <span class="leg-pct">${pct}%</span>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderTopLists(entries) {
+    const el = document.getElementById('topLists');
+
+    if (entries.length === 0) {
+      el.innerHTML = '<div class="empty-state">No completed entries to break down.</div>';
+      return;
+    }
+
+    // Aggregate counts + scored sums for genres
+    const genreStats   = aggregate(entries, e => (e.genres || []).map(g => g.name));
+    const studioStats  = aggregate(entries, e => (e.studios || []).map(s => s.name));
+    const authorStats  = aggregate(entries, e => (e.authors || []).map(a => a.name));
+    const serialStats  = aggregate(entries, e => (e.serializations || []).map(s => s.name));
+
+    let html = '';
+    html += renderToplist('Most-watched genres', byCount(genreStats));
+    html += renderToplist('Highest-rated genres', byAvgScore(genreStats));
+
+    if (mode === 'anime') {
+      html += renderToplist('Most-watched studios', byCount(studioStats));
+      html += renderToplist('Highest-rated studios', byAvgScore(studioStats));
+    } else {
+      html += renderToplist('Most-read authors', byCount(authorStats));
+      html += renderToplist('Highest-rated authors', byAvgScore(authorStats));
+      if (serialStats.size > 0) {
+        html += renderToplist('Most common serializations', byCount(serialStats));
+      }
+    }
+
+    el.innerHTML = html;
+  }
+
+  /**
+   * Aggregate stats per key (genre name, studio name, etc.).
+   * Returns Map<key, {count, scoreSum, scoreCount}>
+   */
+  function aggregate(entries, keyExtractor) {
+    const map = new Map();
+    for (const e of entries) {
+      const keys = keyExtractor(e) || [];
+      for (const k of keys) {
+        if (!map.has(k)) map.set(k, { count: 0, scoreSum: 0, scoreCount: 0 });
+        const stat = map.get(k);
+        stat.count += 1;
+        if (e.score && e.score > 0) {
+          stat.scoreSum   += e.score;
+          stat.scoreCount += 1;
+        }
+      }
+    }
+    return map;
+  }
+
+  function byCount(map) {
+    return [...map.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 5)
+      .map(([name, s]) => ({ name, value: s.count, suffix: s.count === 1 ? 'entry' : 'entries' }));
+  }
+
+  function byAvgScore(map) {
+    return [...map.entries()]
+      .filter(([, s]) => s.scoreCount >= 3)   // require min 3 scored entries to be meaningful
+      .map(([name, s]) => ({ name, avg: s.scoreSum / s.scoreCount, count: s.scoreCount }))
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 5)
+      .map(({ name, avg, count }) => ({
+        name,
+        value: avg.toFixed(2),
+        suffix: `over ${count}`,
+      }));
+  }
+
+  function renderToplist(title, rows) {
+    if (rows.length === 0) {
+      return `
+        <div class="toplist">
+          <h3>${escapeHtml(title)}</h3>
+          <div class="empty-state" style="padding:20px 0;">Not enough data.</div>
+        </div>
+      `;
+    }
+    const inner = rows.map(r => `
+      <div class="row">
+        <span class="name">${escapeHtml(r.name)}</span>
+        <span class="num">${escapeHtml(String(r.value))} <span style="color:#666;font-weight:normal;font-size:0.8rem;">${escapeHtml(r.suffix || '')}</span></span>
+      </div>
+    `).join('');
+    return `<div class="toplist"><h3>${escapeHtml(title)}</h3>${inner}</div>`;
+  }
+
+  // ──────────────────────────────────────────────
+  // Helpers
+  // ──────────────────────────────────────────────
+  function setProgress(text, pct) {
+    const wrap = document.getElementById('progressWrap');
+    wrap.classList.add('visible');
+    document.getElementById('progressText').textContent = text;
+    document.getElementById('progressFill').style.width = `${Math.min(100, Math.max(0, pct))}%`;
+  }
+  function hideProgress() {
+    document.getElementById('progressWrap').classList.remove('visible');
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = '⚠️ ' + msg;
+    el.style.display = 'block';
+  }
+  function clearError() {
+    document.getElementById('error-msg').style.display = 'none';
+  }
+</script>
+</body>
+</html>
