@@ -51,25 +51,14 @@ Rank your completed anime via head-to-head comparisons.
   - [x] Gold/silver/bronze styling on top 3, posters + records shown
 
 ### Hub + plug-and-play polish
-- [x] `index.html` — landing page with cards/links to each tool
-- [x] Proxy serves static files too (one command opens everything at `localhost:8765/`)
-- [ ] `README.md` — setup steps, how to run, troubleshooting
-- [ ] `run.sh` / `run.bat` — start proxy + open hub in default browser
-- [ ] `requirements.txt` — currently empty (stdlib only); document this
-- [ ] Folder restructure:
-  ```
-  MAL_tools/
-  ├── mal_proxy.py
-  ├── index.html
-  ├── tools/
-  │   ├── ptw_picker.html
-  │   ├── ptr_picker.html
-  │   └── ranker.html
-  ├── shared/
-  │   ├── style.css
-  │   └── api.js
-  └── README.md
-  ```
+- [x] `index.html` — landing page with cards/links to each tool, live proxy status indicator
+- [x] Proxy serves static files (one command opens everything at `localhost:8765/`)
+- [x] Proxy auto-opens the browser to the hub on launch (`--no-browser` to skip)
+- [x] Folder restructure: tools moved to `tools/`, old notebook to `legacy/`
+- [x] `run.sh` (Unix) and `run.bat` (Windows) — one-command launchers
+- [x] `requirements.txt` — explicitly notes "stdlib only, no install needed"
+- [x] `.gitignore` — Python, venv, OS, editor, ipynb checkpoints
+- [x] `README.md` — install / quick start / API reference / troubleshooting / privacy notes
 
 ---
 

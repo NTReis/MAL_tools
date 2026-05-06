@@ -1,1 +1,23 @@
-/.DS_Store
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local logs / scratch
+*.log
+scratch/

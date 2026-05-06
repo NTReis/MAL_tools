@@ -1,0 +1,5 @@
+# MAL Tools has no third-party dependencies.
+# It runs on Python 3.7+ stdlib only (http.server, urllib, json, ...).
+#
+# This file is here so common Python tooling sees the project and treats it
+# as a Python project, but you do NOT need to `pip install` anything.
